@@ -1,0 +1,17 @@
+# 後端
+backend/node_modules/
+backend/.env
+backend/npm-debug.log*
+
+# 作業系統
+.DS_Store
+Thumbs.db
+
+# IDE
+.vs/
+*.user
+*.suo
+
+# 環境變數（勿把 API 金鑰 commit 上去）
+.env
+.env.local
