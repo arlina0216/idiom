@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
   'use strict';
 
   var ALL = window.IDIOMS;
@@ -35,10 +35,16 @@
   var btnNext = document.getElementById('btnNext');
   var canvasWrap = document.querySelector('.canvas-wrap');
   var hintEl = document.getElementById('hint');
+  var versionEl = document.getElementById('version');
 
   var API_BASE = '';
 
   var CONFIDENCE_THRESHOLD = 0.75;
+
+  if (versionEl) {
+    var v = window.APP_VERSION ? String(window.APP_VERSION) : 'unknown';
+    versionEl.textContent = '版本：' + v;
+  }
 
   var drawing = false;
   var lastX = 0;
@@ -115,11 +121,19 @@
     return canvas.toDataURL('image/png');
   }
 
-  function recognize(imageBase64, onDone) {
+  function normalizeChar(s) {
+    if (s == null || s === '') return '';
+    return String(s).normalize('NFKC').trim().charAt(0) || '';
+  }
+
+  function recognize(imageBase64, expectedAnswer, onDone) {
     fetch(API_BASE + '/recognize', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image: imageBase64 })
+      body: JSON.stringify({
+        image: imageBase64,
+        expectedAnswer: expectedAnswer
+      })
     })
       .then(function (res) {
         return res.json();
@@ -192,23 +206,24 @@
     resultEl.textContent = '辨識中…';
     resultEl.className = 'result';
 
-    recognize(base64, function (err, data) {
+    recognize(base64, item.answer, function (err, data) {
       btnSubmit.disabled = false;
       if (err) {
         showResult(false, '無法連線到辨識服務，請確認後端已啟動。');
         return;
       }
-      var recognized = (data && data.recognized) ? String(data.recognized).trim() : '';
+      var recognized = normalizeChar(data && data.recognized);
       var confidence = (data && typeof data.confidence === 'number') ? data.confidence : 0;
+      var answerNorm = normalizeChar(item.answer);
 
-      var match = recognized === item.answer;
+      var match = recognized === answerNorm;
       var isCorrect = match && confidence >= CONFIDENCE_THRESHOLD;
 
       if (isCorrect) {
         showResult(true, '答對了！');
         btnNext.disabled = false;
       } else if (!match) {
-        showResult(false, '再試一次！正確答案是「' + item.answer + '」。');
+        showResult(false, '再試一次！正確答案是「' + item.answer + '」。辨識為「' + (recognized || '？') + '」。');
       } else {
         showResult(false, '辨識信心不足，請再試一次！正確答案是「' + item.answer + '」。');
       }
