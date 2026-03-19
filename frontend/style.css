@@ -31,6 +31,14 @@ h1 {
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
 
+.progress {
+  font-size: 0.95rem;
+  color: #2c5f2d;
+  text-align: center;
+  margin: 0 0 0.75rem 0;
+  font-weight: bold;
+}
+
 .question-text {
   font-size: 1.75rem;
   text-align: center;

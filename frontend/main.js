@@ -1,170 +1,234 @@
-﻿(function () {
-    'use strict';
+(function () {
+  'use strict';
 
-    // 成語題庫：題目字串（括號代表填空）、答案
-    var idioms = [
-        { question: '畫蛇添( )', answer: '足' },
-        { question: '三( )兩語', answer: '言' },
-        { question: '( )心如焚', answer: '焦' },
-        { question: '一( )不染', answer: '塵' },
-        { question: '守( )待兔', answer: '株' }
-    ];
+  var ALL = window.IDIOMS;
+  if (!ALL || !ALL.length) {
+    document.getElementById('questionText').textContent = '題庫載入失敗';
+    return;
+  }
 
-    var currentIndex = 0;
-    var canvas = document.getElementById('canvas');
-    var ctx = canvas.getContext('2d');
-    var questionText = document.getElementById('questionText');
-    var resultEl = document.getElementById('result');
-    var btnClear = document.getElementById('btnClear');
-    var btnSubmit = document.getElementById('btnSubmit');
-    var btnNext = document.getElementById('btnNext');
+  var TOTAL = ALL.length;
 
-    // 與後端同網址時用相對路徑（例如 http://localhost:3000）；發佈到 GitHub Pages 時改成你的後端網址
-    var API_BASE =
-        window.location.protocol === 'http:' || window.location.protocol === 'https:'
-            ? ''
-            : 'https://idiom-backend.onrender.com/';
-
-    // 畫板：畫線
-    var drawing = false;
-    var lastX = 0;
-    var lastY = 0;
-
-    function getPos(e) {
-        var rect = canvas.getBoundingClientRect();
-        var scaleX = canvas.width / rect.width;
-        var scaleY = canvas.height / rect.height;
-        var clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        var clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        return {
-            x: (clientX - rect.left) * scaleX,
-            y: (clientY - rect.top) * scaleY
-        };
+  function shuffle(arr) {
+    var a = arr.slice();
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = a[i];
+      a[i] = a[j];
+      a[j] = t;
     }
+    return a;
+  }
 
-    function startDraw(e) {
-        e.preventDefault();
-        drawing = true;
-        var p = getPos(e);
-        lastX = p.x;
-        lastY = p.y;
+  /** 本次測驗：隨機順序的 150 題 */
+  var quizList = shuffle(ALL);
+  var currentIndex = 0;
+  var finished = false;
+
+  var canvas = document.getElementById('canvas');
+  var ctx = canvas.getContext('2d');
+  var questionText = document.getElementById('questionText');
+  var progressEl = document.getElementById('progress');
+  var resultEl = document.getElementById('result');
+  var btnClear = document.getElementById('btnClear');
+  var btnSubmit = document.getElementById('btnSubmit');
+  var btnNext = document.getElementById('btnNext');
+  var canvasWrap = document.querySelector('.canvas-wrap');
+  var hintEl = document.getElementById('hint');
+
+  var API_BASE = '';
+
+  var CONFIDENCE_THRESHOLD = 0.75;
+
+  var drawing = false;
+  var lastX = 0;
+  var lastY = 0;
+
+  function getPos(e) {
+    var rect = canvas.getBoundingClientRect();
+    var scaleX = canvas.width / rect.width;
+    var scaleY = canvas.height / rect.height;
+    var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY
+    };
+  }
+
+  function startDraw(e) {
+    if (finished) return;
+    e.preventDefault();
+    drawing = true;
+    var p = getPos(e);
+    lastX = p.x;
+    lastY = p.y;
+  }
+
+  function moveDraw(e) {
+    if (finished) return;
+    e.preventDefault();
+    if (!drawing) return;
+    var p = getPos(e);
+    ctx.beginPath();
+    ctx.moveTo(lastX, lastY);
+    ctx.lineTo(p.x, p.y);
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+    lastX = p.x;
+    lastY = p.y;
+  }
+
+  function endDraw(e) {
+    e.preventDefault();
+    drawing = false;
+  }
+
+  canvas.addEventListener('mousedown', startDraw);
+  canvas.addEventListener('mousemove', moveDraw);
+  canvas.addEventListener('mouseup', endDraw);
+  canvas.addEventListener('mouseleave', endDraw);
+  canvas.addEventListener('touchstart', startDraw, { passive: false });
+  canvas.addEventListener('touchmove', moveDraw, { passive: false });
+  canvas.addEventListener('touchend', endDraw, { passive: false });
+
+  function clearCanvas() {
+    ctx.fillStyle = '#fafafa';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    resultEl.textContent = '';
+    resultEl.className = 'result';
+  }
+
+  btnClear.addEventListener('click', function () {
+    if (finished) return;
+    clearCanvas();
+  });
+
+  function showResult(isCorrect, message) {
+    resultEl.className = 'result ' + (isCorrect ? 'correct' : 'wrong');
+    resultEl.textContent = message;
+  }
+
+  function canvasToBase64() {
+    return canvas.toDataURL('image/png');
+  }
+
+  function recognize(imageBase64, onDone) {
+    fetch(API_BASE + '/recognize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: imageBase64 })
+    })
+      .then(function (res) {
+        return res.json();
+      })
+      .then(function (data) {
+        onDone(null, data);
+      })
+      .catch(function (err) {
+        onDone(err, null);
+      });
+  }
+
+  function updateProgress() {
+    if (finished) return;
+    progressEl.textContent = '第 ' + (currentIndex + 1) + ' / ' + TOTAL + ' 題（隨機順序）';
+  }
+
+  function setPlayingUi(enabled) {
+    btnSubmit.disabled = !enabled;
+    btnClear.disabled = !enabled;
+    canvas.style.opacity = enabled ? '1' : '0.5';
+    canvas.style.pointerEvents = enabled ? 'auto' : 'none';
+  }
+
+  function showComplete() {
+    finished = true;
+    progressEl.textContent = '已全部完成（共 ' + TOTAL + ' 題）';
+    questionText.textContent = '恭喜！已隨機考完所有成語';
+    hintEl.textContent = '按「再玩一次」可重新洗牌再考一次';
+    clearCanvas();
+    resultEl.className = 'result correct';
+    resultEl.textContent = '太棒了！';
+    setPlayingUi(false);
+    btnNext.textContent = '再玩一次';
+    btnNext.disabled = false;
+    if (canvasWrap) canvasWrap.style.display = 'none';
+  }
+
+  function restartQuiz() {
+    finished = false;
+    quizList = shuffle(ALL);
+    currentIndex = 0;
+    btnNext.textContent = '下一題';
+    hintEl.textContent = '在下方畫板寫出括號裡的答案';
+    if (canvasWrap) canvasWrap.style.display = '';
+    setPlayingUi(true);
+    loadQuestion();
+  }
+
+  function loadQuestion() {
+    if (finished) return;
+    if (currentIndex >= quizList.length) {
+      showComplete();
+      return;
     }
+    var item = quizList[currentIndex];
+    questionText.textContent = item.question;
+    updateProgress();
+    clearCanvas();
+    btnNext.disabled = true;
+  }
 
-    function moveDraw(e) {
-        e.preventDefault();
-        if (!drawing) return;
-        var p = getPos(e);
-        ctx.beginPath();
-        ctx.moveTo(lastX, lastY);
-        ctx.lineTo(p.x, p.y);
-        ctx.strokeStyle = '#333';
-        ctx.lineWidth = 4;
-        ctx.lineCap = 'round';
-        ctx.stroke();
-        lastX = p.x;
-        lastY = p.y;
-    }
+  btnSubmit.addEventListener('click', function () {
+    if (finished) return;
+    var item = quizList[currentIndex];
+    if (!item) return;
 
-    function endDraw(e) {
-        e.preventDefault();
-        drawing = false;
-    }
+    var base64 = canvasToBase64();
+    btnSubmit.disabled = true;
+    resultEl.textContent = '辨識中…';
+    resultEl.className = 'result';
 
-    canvas.addEventListener('mousedown', startDraw);
-    canvas.addEventListener('mousemove', moveDraw);
-    canvas.addEventListener('mouseup', endDraw);
-    canvas.addEventListener('mouseleave', endDraw);
-    canvas.addEventListener('touchstart', startDraw, { passive: false });
-    canvas.addEventListener('touchmove', moveDraw, { passive: false });
-    canvas.addEventListener('touchend', endDraw, { passive: false });
-
-    function clearCanvas() {
-        ctx.fillStyle = '#fafafa';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        resultEl.textContent = '';
-        resultEl.className = 'result';
-    }
-
-    btnClear.addEventListener('click', clearCanvas);
-
-    function showResult(isCorrect, message) {
-        resultEl.className = 'result ' + (isCorrect ? 'correct' : 'wrong');
-        resultEl.textContent = message;
-    }
-
-    // 把 canvas 轉成 base64 圖片
-    function canvasToBase64() {
-        return canvas.toDataURL('image/png');
-    }
-
-    // 呼叫後端 /recognize
-    function recognize(imageBase64, onDone) {
-        fetch(API_BASE + '/recognize', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image: imageBase64 })
-        })
-            .then(function (res) { return res.json(); })
-            .then(function (data) {
-                onDone(null, data);
-            })
-            .catch(function (err) {
-                onDone(err, null);
-            });
-    }
-
-    function loadQuestion() {
-        var item = idioms[currentIndex];
-        questionText.textContent = item.question;
-        clearCanvas();
-        btnNext.disabled = true;
-    }
-
-    btnSubmit.addEventListener('click', function () {
-        var item = idioms[currentIndex];
-        if (!item) return;
-
-        var base64 = canvasToBase64();
-        btnSubmit.disabled = true;
-        resultEl.textContent = '辨識中…';
-        resultEl.className = 'result';
-
-        recognize(base64, function (err, data) {
-            btnSubmit.disabled = false;
-            if (err) {
-                showResult(false, '無法連線到辨識服務，請確認後端已啟動。');
-                return;
-            }
-      var recognized = (data && data.recognized) ? data.recognized.trim() : '';
+    recognize(base64, function (err, data) {
+      btnSubmit.disabled = false;
+      if (err) {
+        showResult(false, '無法連線到辨識服務，請確認後端已啟動。');
+        return;
+      }
+      var recognized = (data && data.recognized) ? String(data.recognized).trim() : '';
       var confidence = (data && typeof data.confidence === 'number') ? data.confidence : 0;
-
-      // 模擬/調整「正確率」：confidence 低於門檻就當作答錯
-      // 你可以把這個數字調高/調低來控制難度（建議 0.85 ~ 0.95）
-      var CONFIDENCE_THRESHOLD = 0.75;
 
       var match = recognized === item.answer;
       var isCorrect = match && confidence >= CONFIDENCE_THRESHOLD;
-            if (isCorrect) {
-                showResult(true, '答對了！');
-                btnNext.disabled = false;
-            } else {
-        if (!match) {
-          showResult(false, '再試一次！正確答案是「' + item.answer + '」。');
-          return;
-        }
-        // 只有在「字對了但信心不夠」才會走到這裡
+
+      if (isCorrect) {
+        showResult(true, '答對了！');
+        btnNext.disabled = false;
+      } else if (!match) {
+        showResult(false, '再試一次！正確答案是「' + item.answer + '」。');
+      } else {
         showResult(false, '辨識信心不足，請再試一次！正確答案是「' + item.answer + '」。');
-            }
-        });
+      }
     });
+  });
 
-    btnNext.addEventListener('click', function () {
-        currentIndex = (currentIndex + 1) % idioms.length;
-        loadQuestion();
-    });
+  btnNext.addEventListener('click', function () {
+    if (finished) {
+      restartQuiz();
+      return;
+    }
+    currentIndex += 1;
+    if (currentIndex >= quizList.length) {
+      showComplete();
+    } else {
+      loadQuestion();
+    }
+  });
 
-    // 初始化畫布底色
-    ctx.fillStyle = '#fafafa';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    loadQuestion();
+  ctx.fillStyle = '#fafafa';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  loadQuestion();
 })();

@@ -9,6 +9,7 @@
 ├── frontend/          # 前端：成語題目 + 手寫畫板
 │   ├── index.html
 │   ├── style.css
+│   ├── idioms.js      # 150 題題庫
 │   └── main.js
 ├── backend/           # 後端：/recognize API（手寫辨識）
 │   ├── package.json
