@@ -23,7 +23,7 @@
   var API_BASE =
     window.location.protocol === 'http:' || window.location.protocol === 'https:'
       ? ''
-      : 'http://localhost:3000';
+      : 'http://localhost:1000';
 
   // 畫板：畫線
   var drawing = false;
