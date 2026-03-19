@@ -19,12 +19,17 @@ app.use(express.json({ limit: '10mb' }));
 const MOCK_USE_EXPECTED = process.env.MOCK_USE_EXPECTED !== 'false';
 
 app.post('/recognize', (req, res) => {
-  const { image, expectedAnswer } = req.body || {};
+  const { image, expectedAnswer, hasInk } = req.body || {};
   if (!image) {
     return res.status(400).json({ error: '缺少 image' });
   }
 
-  if (MOCK_USE_EXPECTED && expectedAnswer != null && typeof expectedAnswer === 'string') {
+  if (
+    MOCK_USE_EXPECTED &&
+    hasInk === true &&
+    expectedAnswer != null &&
+    typeof expectedAnswer === 'string'
+  ) {
     const ch = String(expectedAnswer).normalize('NFKC').trim().charAt(0);
     if (ch) {
       return res.json({

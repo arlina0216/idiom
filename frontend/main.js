@@ -46,6 +46,9 @@
     versionEl.textContent = '版本：' + v;
   }
 
+  // 簡單防呆：沒有寫任何筆畫就不允許送出
+  var hasInk = false;
+
   var drawing = false;
   var lastX = 0;
   var lastY = 0;
@@ -83,6 +86,10 @@
     ctx.lineWidth = 4;
     ctx.lineCap = 'round';
     ctx.stroke();
+
+    // 只要有畫到線就算有筆畫（避免空白也送出）
+    hasInk = true;
+
     lastX = p.x;
     lastY = p.y;
   }
@@ -105,6 +112,7 @@
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     resultEl.textContent = '';
     resultEl.className = 'result';
+    hasInk = false;
   }
 
   btnClear.addEventListener('click', function () {
@@ -132,7 +140,8 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         image: imageBase64,
-        expectedAnswer: expectedAnswer
+        expectedAnswer: expectedAnswer,
+        hasInk: hasInk
       })
     })
       .then(function (res) {
@@ -200,6 +209,11 @@
     if (finished) return;
     var item = quizList[currentIndex];
     if (!item) return;
+
+    if (!hasInk) {
+      showResult(false, '請先在畫板寫字再送出。');
+      return;
+    }
 
     var base64 = canvasToBase64();
     btnSubmit.disabled = true;
