@@ -3,8 +3,8 @@
 
   // 成語題庫：題目字串（括號代表填空）、答案
   var idioms = [
-    { question: '三( )兩語', answer: '言' },
     { question: '畫蛇添( )', answer: '足' },
+    { question: '三( )兩語', answer: '言' },    
     { question: '( )心如焚', answer: '焦' },
     { question: '一( )不染', answer: '塵' },
     { question: '守( )待兔', answer: '株' }
