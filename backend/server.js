@@ -9,22 +9,34 @@ app.use(express.json({ limit: '10mb' }));
 
 /**
  * POST /recognize
- * Body: { image: "data:image/png;base64,..." }
- * 目前為 mock（實際接雲端 API 時改寫此處）
+ * Body: { image: "data:image/png;base64,...", expectedAnswer?: "序" }
+ *
+ * 預設為「練習用 mock」：若設 MOCK_USE_EXPECTED!=false，且 body 帶 expectedAnswer，
+ * 則直接回傳該字（高信心），讓手寫流程可測通；接上真實辨識 API 前請設
+ *   MOCK_USE_EXPECTED=false
+ * 並改寫此處呼叫雲端辨識（否則任何人可偽造答案）。
  */
+const MOCK_USE_EXPECTED = process.env.MOCK_USE_EXPECTED !== 'false';
+
 app.post('/recognize', (req, res) => {
-  const { image } = req.body || {};
+  const { image, expectedAnswer } = req.body || {};
   if (!image) {
     return res.status(400).json({ error: '缺少 image' });
   }
 
-  const mockChars = ['言', '足', '焦', '塵', '株'];
-  const recognized = mockChars[Math.floor(Math.random() * mockChars.length)];
-  const confidence = 0.85 + Math.random() * 0.1;
+  if (MOCK_USE_EXPECTED && expectedAnswer != null && typeof expectedAnswer === 'string') {
+    const ch = String(expectedAnswer).normalize('NFKC').trim().charAt(0);
+    if (ch) {
+      return res.json({
+        recognized: ch,
+        confidence: 0.97,
+        mockMode: 'expected_echo'
+      });
+    }
+  }
 
-  res.json({
-    recognized,
-    confidence: Math.round(confidence * 100) / 100
+  return res.status(501).json({
+    error: '尚未接上真正的手寫辨識服務（請部署時設 MOCK_USE_EXPECTED=true 走練習模式，或改寫後端接雲端 API）'
   });
 });
 

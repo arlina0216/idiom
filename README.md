@@ -47,8 +47,20 @@ npm start
 
 ## 手寫辨識
 
-目前後端為 **mock 模式**（回傳假資料），方便先跑通流程。  
-要接上真正辨識時，在 `backend/server.js` 中改為呼叫 Google Cloud Vision 或 Azure 等 API，並在伺服器設定環境變數存放 API 金鑰。
+### 練習用 mock（預設）
+
+後端預設會讀取前端送出的 `expectedAnswer`，並**直接回傳該字**（高信心），讓「手寫 → 送出 → 判對錯」流程可以測通。  
+這**不是**真的看圖辨識；接上雲端手寫／OCR 前，小朋友若覺得「明明寫對卻錯」，多半是舊版隨機 mock 造成。
+
+- 若要維持練習模式：**不必設定**環境變數（預設即啟用）。
+- 若要改成「正式辨識」：在 Render 等主機設定  
+  `MOCK_USE_EXPECTED=false`  
+  並在 `backend/server.js` 改為呼叫 Google Cloud Vision、Azure 等 API。  
+  （目前若關閉練習模式，後端會回 `501`，不再使用任何「隨機假資料」。）
+
+### 接上真正辨識
+
+在 `backend/server.js` 中改為呼叫雲端 API，並用環境變數存放 API 金鑰（勿 commit）。
 
 ## 授權
 
