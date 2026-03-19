@@ -23,7 +23,7 @@
   var API_BASE =
     window.location.protocol === 'http:' || window.location.protocol === 'https:'
       ? ''
-      : 'https://idiom-backend-fg74.onrender.com';
+      : 'https://idiom-backend.onrender.com/';
 
   // 畫板：畫線
   var drawing = false;
